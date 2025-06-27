@@ -104,12 +104,6 @@ def incident_analyzer_page():
             if new_report.strip():
                 processed_new_report = automated_incident_triage([new_report], len(session['incidents_data']))
                 session['incidents_data'].extend(processed_new_report)
-        elif 'load_examples' in request.form:
-            current_report_descriptions = [inc['Description'] for inc in session['incidents_data']]
-            new_examples = [rep for rep in example_incident_reports if rep not in current_report_descriptions]
-            if new_examples:
-                processed_examples = automated_incident_triage(new_examples, len(session['incidents_data']))
-                session['incidents_data'].extend(processed_examples)
 
         return redirect(url_for('incident_analyzer_page'))
 
@@ -149,6 +143,18 @@ def incident_analyzer_page():
 def clear_incidents():
     session['incidents_data'] = []
     return redirect(url_for('incident_analyzer_page'))
+
+@app.route("/load_examples", methods=["POST"])
+def load_examples_from_incidents():
+    if 'incidents_data' not in session:
+        session['incidents_data'] = []
+    current_report_descriptions = [inc['Description'] for inc in session['incidents_data']]
+    new_examples = [rep for rep in example_incident_reports if rep not in current_report_descriptions]
+    if new_examples:
+        processed_examples = automated_incident_triage(new_examples, len(session['incidents_data']))
+        session['incidents_data'].extend(processed_examples)
+    return redirect(url_for('incident_analyzer_page'))
+
 
 # --- Benchmarking Logic (From Day 3 Project) ---
 BENCHMARKS = {
@@ -203,6 +209,20 @@ def benchmarking_page():
     plot_data = None
     advice = []
 
+    # Default dummy data for GET requests or initial load
+    dummy_form_data = {
+        'industry': 'Manufacturing',
+        'defect_rate': 0.8,
+        'on_time_delivery': 92.0,
+        'customer_satisfaction': 8.5,
+        'production_efficiency': 85.0,
+        'employee_turnover': 10.0,
+        'patient_wait_time': 20.0,
+        'bed_occupancy': 75.0
+    }
+
+    current_dummy_form_data = dummy_form_data.copy()
+
     if request.method == "POST":
         user_metrics = {
             "industry": request.form['industry'],
@@ -218,11 +238,15 @@ def benchmarking_page():
              user_metrics["Patient Wait Time (min)"] = float(request.form['patient_wait_time'])
              user_metrics["Bed Occupancy (%)"] = float(request.form['bed_occupancy'])
 
+        # Update dummy data with submitted form values for persistence
+        current_dummy_form_data.update(request.form)
 
         selected_industry_benchmarks = BENCHMARKS.get(user_metrics['industry'], {})
 
         comparison_results_list = []
         bar_chart_data = []
+
+        lower_is_better_metrics = ["Defect Rate (%)", "Employee Turnover (%)", "Patient Wait Time (min)"]
 
         for metric, user_value in user_metrics.items():
             if metric == "industry": continue
@@ -231,7 +255,181 @@ def benchmarking_page():
             world_class_best = selected_industry_benchmarks.get("World-Class Functional Best", {}).get(metric)
 
             if industry_best is not None and world_class_best is not None:
-                gap_industry = user_value - industry_best
-                gap_world_class = user_value - world_class_best
+                is_higher_better = metric not in lower_is_better_metrics
 
-                is_higher_
+                gap_to_industry = 0
+                gap_to_world_class = 0
+
+                if is_higher_better:
+                    if industry_best > 0: # Avoid division by zero
+                        gap_to_industry = ((industry_best - user_value) / industry_best) * 100
+                    if world_class_best > 0:
+                        gap_to_world_class = ((world_class_best - user_value) / world_class_best) * 100
+                else: # Lower is better
+                    if industry_best > 0: # Avoid division by zero
+                        gap_to_industry = ((user_value - industry_best) / industry_best) * 100
+                    if world_class_best > 0:
+                        gap_to_world_class = ((user_value - world_class_best) / world_class_best) * 100
+
+                comparison_results_list.append({
+                    'Metric': metric,
+                    'Your Value': user_value,
+                    'Industry Best': industry_best,
+                    'World-Class Best': world_class_best,
+                    'Gap to Industry (%)': round(gap_to_industry, 2),
+                    'Gap to World-Class (%)': round(gap_to_world_class, 2),
+                    'Is_Higher_Better': is_higher_better
+                })
+
+        comparison_results = comparison_results_list # Update the outer variable
+
+        # Generate advice
+        advice.append(f"Analyzing your performance against the '{user_metrics['industry']}' industry:")
+        for res in comparison_results:
+            metric = res['Metric']
+            your_val = res['Your Value']
+            industry_val = res['Industry Best']
+            world_val = res['World-Class Best']
+            gap_industry_pc = res['Gap to Industry (%)']
+            is_higher_better = res['Is_Higher_Better']
+
+            if is_higher_better:
+                if your_val >= world_val:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is world-class! Excellent work. Maintain these standards.")
+                elif your_val >= industry_val:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) exceeds industry best. Focus on continuous improvement to reach world-class levels.")
+                else:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is below industry best (Avg: {industry_val}%). Focus on strategies to improve this metric. (Gap: {abs(gap_industry_pc)}%)")
+            else: # Lower is better
+                if your_val <= world_val:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is world-class! Excellent work. Maintain these low levels of deviation.")
+                elif your_val <= industry_val:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is better than industry best. Continue to optimize. (Gap: {abs(gap_industry_pc)}%)")
+                else:
+                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is above industry best (Avg: {industry_val}%). Implement measures to reduce this metric. (Gap: {abs(gap_industry_pc)}%)")
+
+        # Generate Plotly Chart
+        df_results_plot = pd.DataFrame(comparison_results)
+        fig = go.Figure()
+
+        fig.add_trace(go.Bar(
+            name='Your Value',
+            x=df_results_plot['Metric'],
+            y=df_results_plot['Your Value'],
+            marker_color='indianred'
+        ))
+        fig.add_trace(go.Bar(
+            name='Industry Best',
+            x=df_results_plot['Metric'],
+            y=df_results_plot['Industry Best'],
+            marker_color='lightsalmon'
+        ))
+        fig.add_trace(go.Bar(
+            name='World-Class Best',
+            x=df_results_plot['Metric'],
+            y=df_results_plot['World-Class Best'],
+            marker_color='lightskyblue'
+        ))
+
+        fig.update_layout(barmode='group', title_text='Performance Benchmarking', yaxis_title='Value (%) or Score')
+        plot_data = json.loads(fig.to_json())
+
+    # This ensures a render_template call always happens, even for GET requests
+    return render_template(
+        'benchmarking.html',
+        active_page='benchmarking',
+        benchmarks_info=BENCHMARKS,
+        dummy_form_data=current_dummy_form_data,
+        comparison_results=comparison_results,
+        plot_data=plot_data,
+        advice=advice
+    )
+
+
+@app.route('/routines', methods=['GET', 'POST'])
+def routines_page():
+    routine_analysis_results = None
+    routine_advice = []
+    ideal_routine_input = ""
+    actual_routine_input = ""
+
+    if request.method == 'POST':
+        ideal_routine_str = request.form['ideal_routine']
+        actual_routine_str = request.form['actual_routine']
+
+        ideal_routine_input = ideal_routine_str
+        actual_routine_input = actual_routine_str
+
+        ideal_steps = [s.strip() for s in ideal_routine_str.split(',') if s.strip()]
+        actual_steps = [s.strip() for s in actual_routine_str.split(',') if s.strip()]
+
+        routine_analysis_results = []
+        max_len = max(len(ideal_steps), len(actual_steps))
+
+        deviations = {
+            'omitted': [],
+            'added': [],
+            'reordered': []
+        }
+
+        # Simple comparison for analysis results and initial deviation check
+        for i in range(max_len):
+            ideal_step = ideal_steps[i] if i < len(ideal_steps) else "N/A"
+            actual_step = actual_steps[i] if i < len(actual_steps) else "N/A"
+
+            status = "Match"
+            if ideal_step == actual_step:
+                status = "Match"
+            elif ideal_step == "N/A":
+                status = "Added Step"
+                deviations['added'].append(actual_step)
+            elif actual_step == "N/A":
+                status = "Omitted Step"
+                deviations['omitted'].append(ideal_step)
+            else:
+                status = "Deviation"
+                if actual_step not in ideal_steps:
+                    deviations['added'].append(actual_step)
+                if ideal_step not in actual_steps:
+                    deviations['omitted'].append(ideal_step)
+
+            routine_analysis_results.append({
+                'Step_Number': i + 1,
+                'Ideal_Step': ideal_step,
+                'Actual_Step': actual_step,
+                'Status': status
+            })
+
+        # More refined deviation analysis for advice
+        omitted_steps = set(ideal_steps) - set(actual_steps)
+        added_steps = set(actual_steps) - set(ideal_steps)
+
+        reordered = False
+        if len(ideal_steps) == len(actual_steps) and omitted_steps == set() and added_steps == set():
+            if ideal_steps != actual_steps:
+                reordered = True
+
+        if not omitted_steps and not added_steps and not reordered:
+            routine_advice.append("Excellent! Your actual routine closely matches the ideal routine. This indicates strong process adherence and predictability.")
+        else:
+            if omitted_steps:
+                routine_advice.append(f"Omitted Steps: The following ideal steps were not performed: {', '.join(omitted_steps)}. This could indicate shortcuts or a lack of understanding of critical steps.")
+            if added_steps:
+                routine_advice.append(f"Added Steps: The following steps were performed but are not in the ideal routine: {', '.join(added_steps)}. This might indicate workarounds, unapproved procedures, or necessary adjustments that should be formalized.")
+            if reordered:
+                routine_advice.append("Reordered Steps: The sequence of steps has changed. While all steps might be present, an altered order can introduce new risks or inefficiencies.")
+
+            routine_advice.append("Action: Investigate the reasons for these deviations. Are ideal routines practical? Is training sufficient? Are there unspoken norms (workarounds) that need to be addressed?")
+
+    return render_template(
+        'routines.html',
+        active_page='routines',
+        ideal_routine_input=ideal_routine_input,
+        actual_routine_input=actual_routine_input,
+        routine_analysis_results=routine_analysis_results,
+        routine_advice=routine_advice
+    )
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
