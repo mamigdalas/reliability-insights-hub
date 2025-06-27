@@ -1,0 +1,5 @@
+Flask
+pandas
+numpy
+plotly
+gunicorn # Gunicorn is a production-ready WSGI HTTP Server, Render needs this to run your Flask app.
