@@ -43,22 +43,22 @@
 </head>
 <body>
     <div class="sidebar">
-        <h3 class="text-center mb-4">Reliability Insights Hub</h3>
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link active" href="/">Incident & Learning Lab</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link disabled" href="#">Performance Benchmarker (Coming Soon)</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link disabled" href="#">Routine Dynamics Explorer (Coming Soon)</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link disabled" href="#">Risk Strategy Navigator (Coming Soon)</a>
-            </li>
-            </ul>
-    </div>
+    <h3 class="text-center mb-4">Reliability Insights Hub</h3>
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link {% if active_page == 'incidents' %}active{% endif %}" href="/">Incident & Learning Lab</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if active_page == 'benchmarking' %}active{% endif %}" href="/benchmarking">Performance Benchmarker</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link disabled" href="#">Routine Dynamics Explorer (Coming Soon)</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link disabled" href="#">Risk Strategy Navigator (Coming Soon)</a>
+        </li>
+    </ul>
+</div>
 
     <div class="main-content">
         <div class="container">

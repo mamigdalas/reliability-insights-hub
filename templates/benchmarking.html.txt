@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Benchmarker - Reliability Insights Hub</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 20px; background-color: #f8f9fa; }
+        .container { background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: #0056b3; }
+        .results-section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
+        .table thead th { background-color: #e9ecef; }
+        .alert-info, .alert-warning { font-weight: bold; }
+        .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+        .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+        .chart-container { margin-top: 20px; }
+        .sidebar {
+            background-color: #343a40;
+            color: #ffffff;
+            height: 100vh;
+            padding-top: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+        }
+        .sidebar .nav-link {
+            color: #ffffff;
+            padding: 10px 15px;
+        }
+        .sidebar .nav-link.active, .sidebar .nav-link:hover {
+            background-color: #0056b3;
+            color: #ffffff;
+            border-radius: 5px;
+        }
+        .main-content {
+            margin-left: 270px;
+            padding: 20px;
+        }
+        .metric-input-group { display: none; } /* Hidden by default */
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3 class="text-center mb-4">Reliability Insights Hub</h3>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if active_page == 'incidents' %}active{% endif %}" href="/">Incident & Learning Lab</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_page == 'benchmarking' %}active{% endif %}" href="/benchmarking">Performance Benchmarker</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link disabled" href="#">Routine Dynamics Explorer (Coming Soon)</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link disabled" href="#">Risk Strategy Navigator (Coming Soon)</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="container">
+            <h1 class="text-center mb-4">Performance Benchmarker</h1>
+            <p class="text-center lead">Compare your (simulated) company's performance against industry and world-class bests.</p>
+
+            <div class="row">
+                <div class="col-md-6 offset-md-3">
+                    <form method="POST" action="/benchmarking" id="benchmarkForm">
+                        <div class="form-group">
+                            <label for="industrySelect">Select Industry:</label>
+                            <select class="form-control" id="industrySelect" name="industry" onchange="showHideMetrics()">
+                                {% for industry_name in benchmarks_info.keys() %}
+                                    <option value="{{ industry_name }}" {% if request.form.industry == industry_name %}selected{% elif dummy_form_data.industry == industry_name and not request.form %}selected{% endif %}>{{ industry_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="defect_rate">Defect Rate (%):</label>
+                            <input type="number" step="0.01" class="form-control" id="defect_rate" name="defect_rate" required value="{{ request.form.defect_rate if request.form.defect_rate else dummy_form_data.defect_rate }}">
+                            <small class="form-text text-muted">Lower is better (e.g., 0.5 for 0.5% defects)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="on_time_delivery">On-Time Delivery (%):</label>
+                            <input type="number" step="0.1" class="form-control" id="on_time_delivery" name="on_time_delivery" required value="{{ request.form.on_time_delivery if request.form.on_time_delivery else dummy_form_data.on_time_delivery }}">
+                            <small class="form-text text-muted">Higher is better (e.g., 90 for 90% on-time)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="customer_satisfaction">Customer Satisfaction (Score):</label>
+                            <input type="number" step="0.1" class="form-control" id="customer_satisfaction" name="customer_satisfaction" required value="{{ request.form.customer_satisfaction if request.form.customer_satisfaction else dummy_form_data.customer_satisfaction }}">
+                            <small class="form-text text-muted">Higher is better (e.g., 7.5 on a scale of 1-10)</small>
+                        </div>
+
+                        <div id="manufacturing_metrics" class="metric-input-group">
+                            <div class="form-group">
+                                <label for="production_efficiency">Production Efficiency (%):</label>
+                                <input type="number" step="0.1" class="form-control" id="production_efficiency" name="production_efficiency" value="{{ request.form.production_efficiency if request.form.production_efficiency else dummy_form_data.production_efficiency }}">
+                                <small class="form-text text-muted">Higher is better</small>
+                            </div>
+                        </div>
+
+                        <div id="service_metrics" class="metric-input-group">
+                            <div class="form-group">
+                                <label for="employee_turnover">Employee Turnover (%):</label>
+                                <input type="number" step="0.1" class="form-control" id="employee_turnover" name="employee_turnover" value="{{ request.form.employee_turnover if request.form.employee_turnover else dummy_form_data.employee_turnover }}">
+                                <small class="form-text text-muted">Lower is better</small>
+                            </div>
+                        </div>
+
+                        <div id="healthcare_metrics" class="metric-input-group">
+                            <div class="form-group">
+                                <label for="patient_wait_time">Patient Wait Time (min):</label>
+                                <input type="number" step="0.1" class="form-control" id="patient_wait_time" name="patient_wait_time" value="{{ request.form.patient_wait_time if request.form.patient_wait_time else dummy_form_data.patient_wait_time }}">
+                                <small class="form-text text-muted">Lower is better</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="bed_occupancy">Bed Occupancy (%):</label>
+                                <input type="number" step="0.1" class="form-control" id="bed_occupancy" name="bed_occupancy" value="{{ request.form.bed_occupancy if request.form.bed_occupancy else dummy_form_data.bed_occupancy }}">
+                                <small class="form-text text-muted">Higher is better</small>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block">Run Benchmark Analysis</button>
+                    </form>
+                </div>
+            </div>
+
+            {% if comparison_results %}
+            <div class="results-section">
+                <h2 class="text-center">Benchmark Comparison Results</h2>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Metric</th>
+                                <th>Your Value</th>
+                                <th>Industry Best</th>
+                                <th>World-Class Best</th>
+                                <th>Gap to Industry (%)</th>
+                                <th>Gap to World-Class (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in comparison_results %}
+                            <tr class="{{ 'table-danger' if (result.Is_Higher_Better and result['Gap to Industry (%)'] > 10) or (not result.Is_Higher_Better and result['Gap to Industry (%)'] > 10) else '' }}">
+                                <td>{{ result.Metric }}</td>
+                                <td>{{ result['Your Value'] }}</td>
+                                <td>{{ result['Industry Best'] }}</td>
+                                <td>{{ result['World-Class Best'] }}</td>
+                                <td class="{{ 'text-danger font-weight-bold' if result['Gap to Industry (%)'] > 0 else 'text-success' }}">
+                                    {{- result['Gap to Industry (%)'] | abs -}}%
+                                </td>
+                                <td class="{{ 'text-danger font-weight-bold' if result['Gap to World-Class (%)'] > 0 else 'text-success' }}">
+                                    {{- result['Gap to World-Class (%)'] | abs -}}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="text-center mt-4 mb-3">Visual Comparison</h3>
+                <div class="chart-container">
+                    <div id="benchmarkChart" style="height: 400px;"></div>
+                </div>
+
+                <h3 class="text-center mt-4 mb-3">Key Learnings & Strategic Advice</h3>
+                {% for adv in advice %}
+                    <div class="alert alert-info" role="alert">
+                        {{ adv }}
+                    </div>
+                {% endfor %}
+                <div class="alert alert-warning" role="alert">
+                    Benchmarking is a key component of **High Reliability Organizations (HROs)** because it fosters **Preoccupation with Failure** (constantly looking for weaknesses) and a **Commitment to Resilience** (building capabilities to overcome challenges identified through comparison).
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        // Plotly chart rendering
+        {% if plot_data %}
+            var benchmarkFig = JSON.parse({{ plot_data | tojson }});
+            Plotly.newPlot('benchmarkChart', benchmarkFig.data, benchmarkFig.layout);
+        {% endif %}
+
+        // JavaScript to show/hide industry-specific metrics
+        function showHideMetrics() {
+            var industry = document.getElementById('industrySelect').value;
+            document.querySelectorAll('.metric-input-group').forEach(function(el) {
+                el.style.display = 'none';
+            });
+            if (industry === 'Manufacturing') {
+                document.getElementById('manufacturing_metrics').style.display = 'block';
+            } else if (industry === 'Service') {
+                document.getElementById('service_metrics').style.display = 'block';
+            } else if (industry === 'Healthcare') {
+                document.getElementById('healthcare_metrics').style.display = 'block';
+            }
+        }
+
+        // Call on page load to set initial state
+        document.addEventListener('DOMContentLoaded', showHideMetrics);
+    </script>
+</body>
+</html>
