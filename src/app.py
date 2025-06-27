@@ -433,3 +433,17 @@ def routines_page():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    @app.route("/", methods=["GET", "POST"])
+def incident_analyzer_page():
+    # ... existing code ...
+
+    if request.method == "POST":
+        if 'incident_description' in request.form:
+            new_report = request.form['incident_description']
+            if new_report.strip():
+                processed_new_report = automated_incident_triage([new_report], len(session['incidents_data']))
+                session['incidents_data'].extend(processed_new_report)
+                print(f"DEBUG: Incident added. Current session data: {session['incidents_data']}") # <-- ADD THIS LINE
+
+        return redirect(url_for('incident_analyzer_page'))
+    # ... rest of the code ...
