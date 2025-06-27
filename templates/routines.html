@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routine Dynamics Explorer - Reliability Insights Hub</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 20px; background-color: #f8f9fa; }
+        .container { background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: #0056b3; }
+        .results-section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
+        .table thead th { background-color: #e9ecef; }
+        .alert-info, .alert-warning, .alert-danger, .alert-success { font-weight: bold; }
+        .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+        .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        .sidebar {
+            background-color: #343a40;
+            color: #ffffff;
+            height: 100vh;
+            padding-top: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+        }
+        .sidebar .nav-link {
+            color: #ffffff;
+            padding: 10px 15px;
+        }
+        .sidebar .nav-link.active, .sidebar .nav-link:hover {
+            background-color: #0056b3;
+            color: #ffffff;
+            border-radius: 5px;
+        }
+        .main-content {
+            margin-left: 270px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3 class="text-center mb-4">Reliability Insights Hub</h3>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if active_page == 'incidents' %}active{% endif %}" href="/">Incident & Learning Lab</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_page == 'benchmarking' %}active{% endif %}" href="/benchmarking">Performance Benchmarker</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_page == 'routines' %}active{% endif %}" href="/routines">Routine Dynamics Explorer</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link disabled" href="#">Risk Strategy Navigator (Coming Soon)</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="container">
+            <h1 class="text-center mb-4">Routine Dynamics Explorer</h1>
+            <p class="text-center lead">Examine how operational routines can drift from their ideal, leading to subtle changes in risk.</p>
+
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <form method="POST" action="/routines">
+                        <div class="form-group">
+                            <label for="ideal_routine">Define Ideal Routine (comma-separated steps):</label>
+                            <textarea class="form-control" id="ideal_routine" name="ideal_routine" rows="3" required placeholder="e.g., Setup Equipment, Pre-Check, Start Process, Monitor, Shutdown, Clean">{{ ideal_routine_input }}</textarea>
+                            <small class="form-text text-muted">Enter the intended sequence of steps for the routine, separated by commas.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="actual_routine">Define Actual Routine (comma-separated steps):</label>
+                            <textarea class="form-control" id="actual_routine" name="actual_routine" rows="3" required placeholder="e.g., Setup Equipment, Start Process, Monitor, Shutdown">{{ actual_routine_input }}</textarea>
+                            <small class="form-text text-muted">Enter the steps as they were actually performed, separated by commas.</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Analyze Routine Drift</button>
+                    </form>
+                </div>
+            </div>
+
+            {% if routine_analysis_results %}
+            <div class="results-section">
+                <h2 class="text-center mb-3">Routine Deviation Analysis</h2>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Step No.</th>
+                                <th>Ideal Step</th>
+                                <th>Actual Step</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in routine_analysis_results %}
+                            <tr class="{{ 'table-danger' if result.Status == 'Deviation' else 'table-success' }}">
+                                <td>{{ result.Step_Number }}</td>
+                                <td>{{ result.Ideal_Step }}</td>
+                                <td>{{ result.Actual_Step }}</td>
+                                <td>{{ result.Status }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="text-center mt-4 mb-3">Key Learnings & Strategic Advice</h3>
+                {% for adv in routine_advice %}
+                    <div class="alert {{ 'alert-danger' if 'Omitted Steps' in adv or 'Added Steps' in adv or 'Reordered Steps' in adv else 'alert-success' if 'Excellent' in adv else 'alert-info' }}" role="alert">
+                        {{ adv }}
+                    </div>
+                {% endfor %}
+                <div class="alert alert-warning" role="alert">
+                    Understanding routine drift is essential for **High Reliability Organizations (HROs)**. It speaks to **Reluctance to Simplify** (recognizing the complexity of operations and not overlooking minor deviations), **Sensitivity to Operations** (constantly monitoring what is actually happening vs. what is planned), and countering the **Normalization of Deviation**.
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

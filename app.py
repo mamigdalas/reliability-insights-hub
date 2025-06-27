@@ -150,10 +150,7 @@ def clear_incidents():
     session['incidents_data'] = []
     return redirect(url_for('incident_analyzer_page'))
 
-### NEW SECTION FOR BENCHMARKING MODULE ###
-
-# Dummy data for industry and world-class benchmarks (simulated for simplicity)
-# These are illustrative targets.
+# --- Benchmarking Logic (From Day 3 Project) ---
 BENCHMARKS = {
     "Manufacturing": {
         "Industry Best": {
@@ -163,15 +160,15 @@ BENCHMARKS = {
             "Production Efficiency (%)": 80
         },
         "World-Class Functional Best": {
-            "Defect Rate (%)": 0.01,  # From e.g., electronics manufacturing
-            "On-Time Delivery (%)": 99, # From e.g., logistics
-            "Customer Satisfaction (Score)": 9.5, # From e.g., service industries
-            "Production Efficiency (%)": 95 # From e.g., lean automotive
+            "Defect Rate (%)": 0.01,
+            "On-Time Delivery (%)": 99,
+            "Customer Satisfaction (Score)": 9.5,
+            "Production Efficiency (%)": 95
         }
     },
     "Service": {
         "Industry Best": {
-            "Defect Rate (%)": 0.2, # E.g., errors in service delivery
+            "Defect Rate (%)": 0.2,
             "On-Time Delivery (%)": 90,
             "Customer Satisfaction (Score)": 8.8,
             "Employee Turnover (%)": 15
@@ -185,7 +182,7 @@ BENCHMARKS = {
     },
     "Healthcare": {
         "Industry Best": {
-            "Defect Rate (%)": 0.8, # E.g., medical errors
+            "Defect Rate (%)": 0.8,
             "Patient Wait Time (min)": 30,
             "Patient Satisfaction (Score)": 8.0,
             "Bed Occupancy (%)": 85
@@ -207,13 +204,11 @@ def benchmarking_page():
     advice = []
 
     if request.method == "POST":
-        # Extract user inputs
         user_metrics = {
             "industry": request.form['industry'],
             "Defect Rate (%)": float(request.form['defect_rate']),
             "On-Time Delivery (%)": float(request.form['on_time_delivery']),
             "Customer Satisfaction (Score)": float(request.form['customer_satisfaction']),
-            # Handle other metrics based on selected industry or provide defaults
         }
         if user_metrics["industry"] == "Manufacturing":
              user_metrics["Production Efficiency (%)"] = float(request.form['production_efficiency'])
@@ -239,96 +234,4 @@ def benchmarking_page():
                 gap_industry = user_value - industry_best
                 gap_world_class = user_value - world_class_best
 
-                # Define if higher/lower is better for each metric
-                is_higher_better = ("%" in metric and "Defect" not in metric and "Turnover" not in metric and "Wait" not in metric) or ("Score" in metric)
-
-                # Calculate percentage gap relative to the benchmark
-                if is_higher_better:
-                    industry_gap_pct = ((industry_best - user_value) / industry_best) * 100 if industry_best != 0 else 0
-                    world_class_gap_pct = ((world_class_best - user_value) / world_class_best) * 100 if world_class_best != 0 else 0
-                else: # Lower is better (Defect Rate, Turnover, Wait Time)
-                    industry_gap_pct = ((user_value - industry_best) / industry_best) * 100 if industry_best != 0 else 0
-                    world_class_gap_pct = ((user_value - world_class_best) / world_class_best) * 100 if world_class_best != 0 else 0
-
-                comparison_results_list.append({
-                    "Metric": metric,
-                    "Your Value": user_value,
-                    "Industry Best": industry_best,
-                    "World-Class Best": world_class_best,
-                    "Gap to Industry (%)": round(industry_gap_pct, 2),
-                    "Gap to World-Class (%)": round(world_class_gap_pct, 2),
-                    "Is_Higher_Better": is_higher_better
-                })
-
-                # Prepare data for bar chart
-                bar_chart_data.append(
-                    go.Bar(name='Your Value', x=[metric], y=[user_value], marker_color='#0056b3'),
-                )
-                bar_chart_data.append(
-                    go.Bar(name='Industry Best', x=[metric], y=[industry_best], marker_color='#ffc107'),
-                )
-                bar_chart_data.append(
-                    go.Bar(name='World-Class Best', x=[metric], y=[world_class_best], marker_color='#28a745'),
-                )
-
-        if comparison_results_list:
-            df_comparison = pd.DataFrame(comparison_results_list)
-            comparison_results = df_comparison.to_dict(orient='records') # Convert back to list of dicts for template
-
-            # Generate Plotly comparison chart
-            fig = go.Figure(data=bar_chart_data)
-            fig.update_layout(barmode='group', title_text='Performance Benchmarking Comparison',
-                              margin=dict(l=20, r=20, t=40, b=20))
-            plot_data = fig.to_json(pretty=False)
-
-            # Generate advice
-            advice.append("Benchmarking is crucial for **Preoccupation with Failure** – actively seeking out weaknesses and areas for improvement before they manifest as failures.")
-            for res in comparison_results_list:
-                if res["Is_Higher_Better"]:
-                    if res["Gap to Industry (%)"] > 0:
-                        advice.append(f"Your {res['Metric']} is {res['Gap to Industry (%)']:.2f}% below Industry Best. This indicates a competitive gap. Consider **Competitive Benchmarking** focused on internal operational improvements related to {res['Metric']}.")
-                    if res["Gap to World-Class (%)"] > 0:
-                        advice.append(f"Your {res['Metric']} is {res['Gap to World-Class (%)']:.2f}% below World-Class Best. This suggests a functional gap. Explore **Functional Benchmarking** with leading organizations in *any* industry excellent at {res['Metric']} (e.g., logistics for On-Time Delivery).")
-                else: # Lower is better
-                    if res["Gap to Industry (%)"] > 0: # User's value is higher than industry best (worse)
-                        advice.append(f"Your {res['Metric']} is {res['Gap to Industry (%)']:.2f}% higher than Industry Best. This indicates a competitive gap. Consider **Competitive Benchmarking** focused on internal operational improvements related to {res['Metric']}.")
-                    if res["Gap to World-Class (%)"] > 0: # User's value is higher than world-class best (worse)
-                        advice.append(f"Your {res['Metric']} is {res['Gap to World-Class (%)']:.2f}% higher than World-Class Best. This suggests a functional gap. Explore **Functional Benchmarking** with leading organizations in *any* industry excellent at {res['Metric']} (e.g., hospitals for reducing wait times).")
-
-        session['benchmarking_results'] = comparison_results # Store results in session if needed later
-        session['benchmarking_plot_data'] = plot_data
-        session['benchmarking_advice'] = advice
-
-        return redirect(url_for('benchmarking_page')) # Redirect after POST
-
-    # On GET request, load data from session if available
-    if 'benchmarking_results' in session:
-        comparison_results = session['benchmarking_results']
-        plot_data = session['benchmarking_plot_data']
-        advice = session['benchmarking_advice']
-
-    # Pass dummy data if no POST yet for initial form load
-    dummy_form_data = {
-        "industry": "Manufacturing",
-        "defect_rate": 1.0,
-        "on_time_delivery": 90.0,
-        "customer_satisfaction": 7.5,
-        "production_efficiency": 70.0,
-        "employee_turnover": 20.0,
-        "patient_wait_time": 45.0,
-        "bed_occupancy": 80.0
-    }
-
-    return render_template("benchmarking.html",
-                           user_metrics=user_metrics,
-                           comparison_results=comparison_results,
-                           plot_data=plot_data,
-                           advice=advice,
-                           benchmarks_info=BENCHMARKS,
-                           dummy_form_data=dummy_form_data,
-                           active_page='benchmarking')
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+                is_higher_
