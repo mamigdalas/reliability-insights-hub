@@ -542,7 +542,7 @@ def risk_navigator_page():
 
     # Categorize risks for display
     hshf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, High Frequency (HSHF) Risks"]
-    hslf_risks = [r for r in session['riscs_data'] if r['Category'] == "High Severity, Low Frequency (HSLF) Risks"]
+    hslf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, Low Frequency (HSLF) Risks"] # CORRECTED LINE
     other_risks = [r for r in session['risks_data'] if r['Category'] == "Other Risks" or r['Category'] == "Low Severity, High Frequency (LSHF) Risks"]
 
     # Get distinct advice for each category, as multiple risks might have the same advice
