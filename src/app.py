@@ -20,74 +20,45 @@ def automated_incident_triage(incident_reports, current_total_incidents):
     }
 
     action_suggestions = {
-        "Equipment Failure": "Schedule immediate inspection and maintenance; review equipment history.",
-        "Human Error": "Review training protocols; conduct task analysis; consider human factors study.",
-        "Procedure/Process Issue": "Initiate procedure review; update documentation; conduct process walkthrough.",
-        "Environmental Factor": "Assess environmental controls; update site safety plans; provide awareness training.",
-        "Maintenance Related": "Evaluate maintenance schedule/quality; review spare parts inventory.",
-        "Communication Breakdown": "Implement new communication protocols; conduct handover training; review briefing methods.",
-        "General Investigation": "Conduct full root cause analysis (RCA) to understand contributing factors."
+        "Equipment Failure": "Schedule immediate inspection and maintenance; review equipment history for recurring issues.",
+        "Human Error": "Initiate procedure review; update documentation; conduct process walkthrough; provide targeted training.",
+        "Procedure/Process Issue": "Revise and simplify relevant procedures; implement stricter adherence checks; conduct process mapping.",
+        "Environmental Factor": "Develop contingency plans for adverse conditions; implement environmental monitoring systems.",
+        "Maintenance Related": "Implement predictive maintenance techniques; optimize maintenance schedules; conduct component-level failure analysis.",
+        "Communication Breakdown": "Establish clear communication protocols; implement read-back/verify procedures; improve shift handover processes."
     }
 
     processed_reports = []
     start_id = current_total_incidents + 1
-
     for i, report in enumerate(incident_reports):
-        report_lower = report.lower()
-        detected_categories = []
-        inferred_action = "Investigate Further" # Default action
-
-        severity = "Low"
-        if any(s_kw in report_lower for s_kw in ["severe", "major", "critical", "injury", "fatality", "shutdown"]):
-            severity = "High"
-        elif any(m_kw in report_lower for m_kw in ["minor", "small", "limited disruption"]):
-            severity = "Medium"
-
+        inferred_categories = []
         for category, kws in keywords.items():
-            if any(kw in report_lower for kw in kws):
-                detected_categories.append(category)
+            if any(kw in report.lower() for kw in kws):
+                inferred_categories.append(category)
 
-        if "Equipment Failure" in detected_categories:
-            inferred_action = action_suggestions["Equipment Failure"]
-        elif "Procedure/Process Issue" in detected_categories:
-            inferred_action = action_suggestions["Procedure/Process Issue"]
-        elif "Human Error" in detected_categories:
-            inferred_action = action_suggestions["Human Error"]
-        elif "Environmental Factor" in detected_categories:
-            inferred_action = action_suggestions["Environmental Factor"]
-        elif "Maintenance Related" in detected_categories:
-            inferred_action = action_suggestions["Maintenance Related"]
-        elif "Communication Breakdown" in detected_categories:
-            inferred_action = action_suggestions["Communication Breakdown"]
+        if not inferred_categories:
+            inferred_categories.append("Unknown")
+
+        # Simplified severity assignment for demonstration
+        severity = "Low"
+        if "major" in report.lower() or "critical" in report.lower() or "shutdown" in report.lower():
+            severity = "High"
+        elif "minor" in report.lower() or "small" in report.lower():
+            severity = "Low"
         else:
-            inferred_action = action_suggestions["General Investigation"]
+            severity = "Medium" # Default if no specific keywords
+
+        # Suggest action based on the first inferred category or a default
+        suggested_action = action_suggestions.get(inferred_categories[0], "Conduct full root cause analysis (RCA) to understand contributing factors.")
 
         processed_reports.append({
             "Report_ID": f"INC-{start_id + i:03d}",
             "Description": report,
             "Severity": severity,
-            "Inferred_Categories": ", ".join(detected_categories) if detected_categories else "Unknown",
-            "Suggested_Action": inferred_action
+            "Inferred_Categories": ", ".join(inferred_categories),
+            "Suggested_Action": suggested_action
         })
     return processed_reports
-
-example_incident_reports = [
-    "Operator failed to follow procedure for lockout/tagout, leading to unexpected equipment startup. Minor injury sustained.",
-    "Sudden power surge caused critical pump malfunction. No immediate harm, but production halted for 2 hours.",
-    "Communication breakdown during shift handover led to a missed critical safety check on Valve 3.",
-    "Routine inspection found severe corrosion on main support beam due to faulty coating application 5 years ago. Potential for collapse.",
-    "New trainee misread pressure gauge, resulting in minor overpressure in the system. No damage.",
-    "Slippery floor near west entrance due to unexpected rain caused a slip and fall incident. No injury.",
-    "Automated sensor for temperature control malfunctioned, causing product to overheat. Scrap material.",
-    "Team forgot to perform the pre-operation checklist as per protocol, minor valve leak detected afterwards.",
-    "Procedure for hazardous waste disposal is ambiguous, leading to different interpretations by staff.",
-    "High winds caused unsecured scaffolding to partially collapse. No personnel injured, but significant structural damage.",
-    "A critical engine component failed mid-flight, forcing an emergency landing. All passengers safe. Major incident.",
-    "Regular maintenance on conveyor belt was delayed due to parts shortage, leading to unexpected stoppage and production delay.",
-    "Overnight crew did not properly brief day crew on critical equipment status. Misunderstanding led to a near-miss collision.",
-    "Faulty wiring in the control panel caused intermittent system errors, impacting data integrity. Minor issue, but frequent.",
-    "New safety protocol for confined spaces is very unclear, leading to confusion among operators and delays."
-]
 
 @app.route("/", methods=["GET", "POST"])
 def incident_analyzer_page():
@@ -104,128 +75,127 @@ def incident_analyzer_page():
             if new_report.strip():
                 processed_new_report = automated_incident_triage([new_report], len(session['incidents_data']))
                 session['incidents_data'].extend(processed_new_report)
-
-        return redirect(url_for('incident_analyzer_page'))
+                print(f"DEBUG: Incident added. Current session data: {session['incidents_data']}")
+        elif 'clear_all_incidents' in request.form:
+            session['incidents_data'] = []
+            return redirect(url_for('incident_analyzer_page'))
 
     if session['incidents_data']:
-        analysis_results = session['incidents_data']
-        df_results = pd.DataFrame(analysis_results)
+        df = pd.DataFrame(session['incidents_data'])
 
-        severity_counts = df_results['Severity'].value_counts().reindex(['High', 'Medium', 'Low'], fill_value=0)
-        severity_fig = go.Figure(data=[go.Bar(x=severity_counts.index, y=severity_counts.values,
-                                             marker_color=['#dc3545', '#ffc107', '#28a745'])])
-        severity_fig.update_layout(title_text='Incidents by Severity', showlegend=False,
-                                   margin=dict(l=20, r=20, t=40, b=20))
+        # Aggregate data for Plotly charts
+        severity_counts = df['Severity'].value_counts().reindex(["Low", "Medium", "High"]).fillna(0)
+        category_counts = df['Inferred_Categories'].str.get_dummies(sep=', ').sum().sort_values(ascending=False)
 
-        all_categories = df_results['Inferred_Categories'].str.split(', ').explode().str.strip()
-        filtered_categories = all_categories[all_categories != 'Unknown']
-        category_counts = filtered_categories.value_counts()
+        # Severity Distribution Chart
+        severity_fig = go.Figure(data=[go.Pie(labels=severity_counts.index, values=severity_counts.values, hole=.3)])
+        severity_fig.update_layout(title_text='Incident Severity Distribution', title_x=0.5)
 
-        if not category_counts.empty:
-            category_fig = go.Figure(data=[go.Pie(labels=category_counts.index, values=category_counts.values, hole=.3)])
-            category_fig.update_layout(title_text='Incidents by Inferred Category', showlegend=True,
-                                       margin=dict(l=20, r=20, t=40, b=20))
-        else:
-            category_fig = go.Figure().update_layout(title_text='No Category Data Yet')
+        # Category Distribution Chart (Bar Chart)
+        category_fig = go.Figure(data=[go.Bar(x=category_counts.index, y=category_counts.values)])
+        category_fig.update_layout(title_text='Incident Category Distribution', title_x=0.5,
+                                    xaxis_title="Category", yaxis_title="Number of Incidents")
 
         plot_data = {
-            'severity_data': severity_fig.to_json(pretty=False),
-            'category_data': category_fig.to_json(pretty=False)
+            'severity_data': severity_fig.to_json(),
+            'category_data': category_fig.to_json()
         }
 
-        high_severity_count = df_results[df_results['Severity'] == 'High'].shape[0]
+        # Calculate high severity count for alert
+        high_severity_count = df[df['Severity'] == 'High'].shape[0]
 
-    return render_template("incident_analyzer.html", analysis_results=analysis_results,
-                           incidents=session['incidents_data'], plot_data=plot_data,
-                           high_severity_count=high_severity_count, active_page='incidents')
+    return render_template("incident_analyzer.html", analysis_results=session['incidents_data'], plot_data=plot_data, high_severity_count=high_severity_count)
 
-@app.route("/clear_incidents", methods=["POST"])
-def clear_incidents():
-    session['incidents_data'] = []
-    return redirect(url_for('incident_analyzer_page'))
-
-@app.route("/load_examples", methods=["POST"])
-def load_examples_from_incidents():
-    if 'incidents_data' not in session:
-        session['incidents_data'] = []
-    current_report_descriptions = [inc['Description'] for inc in session['incidents_data']]
-    new_examples = [rep for rep in example_incident_reports if rep not in current_report_descriptions]
-    if new_examples:
-        processed_examples = automated_incident_triage(new_examples, len(session['incidents_data']))
-        session['incidents_data'].extend(processed_examples)
-    return redirect(url_for('incident_analyzer_page'))
-
-
-# --- Benchmarking Logic (From Day 3 Project) ---
+# --- Performance Benchmarker Logic (From Day 3 Project) ---
 BENCHMARKS = {
     "Manufacturing": {
         "Industry Best": {
+            "Safety Incidents (TRIR)": 0.5,
+            "Quality Defects (PPM)": 100,
+            "Maintenance Costs (% of Revenue)": 2.0,
+            "Overall Equipment Effectiveness (OEE) (%)": 85.0,
+            "Energy Consumption (kWh/unit)": 1.5,
             "Defect Rate (%)": 0.5,
-            "On-Time Delivery (%)": 95,
-            "Customer Satisfaction (Score)": 8.5,
-            "Production Efficiency (%)": 80
+            "On-Time Delivery (%)": 98.0,
+            "Customer Satisfaction (Score)": 4.5,
+            "Production Efficiency (%)": 90.0 # Specific to Manufacturing
         },
         "World-Class Functional Best": {
-            "Defect Rate (%)": 0.01,
-            "On-Time Delivery (%)": 99,
-            "Customer Satisfaction (Score)": 9.5,
-            "Production Efficiency (%)": 95
+            "Safety Incidents (TRIR)": 0.1,
+            "Quality Defects (PPM)": 10,
+            "Maintenance Costs (% of Revenue)": 0.5,
+            "Overall Equipment Effectiveness (OEE) (%)": 95.0,
+            "Energy Consumption (kWh/unit)": 0.8,
+            "Defect Rate (%)": 0.1,
+            "On-Time Delivery (%)": 99.9,
+            "Customer Satisfaction (Score)": 4.9,
+            "Production Efficiency (%)": 98.0 # Specific to Manufacturing
         }
     },
     "Service": {
         "Industry Best": {
-            "Defect Rate (%)": 0.2,
-            "On-Time Delivery (%)": 90,
-            "Customer Satisfaction (Score)": 8.8,
-            "Employee Turnover (%)": 15
+            "Safety Incidents (TRIR)": 0.8,
+            "Quality Defects (PPM)": 50, # Reinterpreted as Service Errors per Million Interactions
+            "Maintenance Costs (% of Revenue)": 1.0, # IT/Facility maintenance relevant
+            "Overall Equipment Effectiveness (OEE) (%)": 90.0, # System uptime/availability
+            "Energy Consumption (kWh/unit)": 0.7, # Per service unit or transaction
+            "Defect Rate (%)": 0.1, # Service error rate
+            "On-Time Delivery (%)": 95.0, # Service delivery timeliness
+            "Customer Satisfaction (Score)": 4.2,
+            "Employee Turnover (%)": 15.0 # Specific to Service
         },
         "World-Class Functional Best": {
-            "Defect Rate (%)": 0.05,
-            "On-Time Delivery (%)": 98,
-            "Customer Satisfaction (Score)": 9.8,
-            "Employee Turnover (%)": 5
+            "Safety Incidents (TRIR)": 0.2,
+            "Quality Defects (PPM)": 5,
+            "Maintenance Costs (% of Revenue)": 0.2,
+            "Overall Equipment Effectiveness (OEE) (%)": 99.5,
+            "Energy Consumption (kWh/unit)": 0.3,
+            "Defect Rate (%)": 0.01,
+            "On-Time Delivery (%)": 99.0,
+            "Customer Satisfaction (Score)": 4.8,
+            "Employee Turnover (%)": 5.0 # Specific to Service
         }
     },
     "Healthcare": {
         "Industry Best": {
-            "Defect Rate (%)": 0.8,
-            "Patient Wait Time (min)": 30,
-            "Patient Satisfaction (Score)": 8.0,
-            "Bed Occupancy (%)": 85
+            "Safety Incidents (TRIR)": 1.2, # Staff safety incidents
+            "Quality Defects (PPM)": 200, # Medical errors per patient interactions
+            "Maintenance Costs (% of Revenue)": 3.0, # Medical equipment/facility
+            "Overall Equipment Effectiveness (OEE) (%)": 80.0, # Medical device uptime
+            "Energy Consumption (kWh/unit)": 2.0, # Per bed or patient day
+            "Defect Rate (%)": 1.0, # Hospital acquired infection rate or readmission
+            "On-Time Delivery (%)": 90.0, # Timeliness of patient care
+            "Customer Satisfaction (Score)": 3.8, # Patient satisfaction
+            "Patient Wait Time (min)": 30.0, # Specific to Healthcare
+            "Bed Occupancy (%)": 85.0 # Specific to Healthcare
         },
         "World-Class Functional Best": {
-            "Defect Rate (%)": 0.1,
-            "Patient Wait Time (min)": 5,
-            "Patient Satisfaction (Score)": 9.5,
-            "Bed Occupancy (%)": 98
+            "Safety Incidents (TRIR)": 0.3,
+            "Quality Defects (PPM)": 20,
+            "Maintenance Costs (% of Revenue)": 1.0,
+            "Overall Equipment Effectiveness (OEE) (%)": 90.0,
+            "Energy Consumption (kWh/unit)": 1.0,
+            "Defect Rate (%)": 0.2,
+            "On-Time Delivery (%)": 98.0,
+            "Customer Satisfaction (Score)": 4.7,
+            "Patient Wait Time (min)": 10.0,
+            "Bed Occupancy (%)": 95.0
         }
     }
 }
 
 @app.route("/benchmarking", methods=["GET", "POST"])
 def benchmarking_page():
-    user_metrics = {}
-    comparison_results = []
+    comparison_results_list = []
     plot_data = None
-    advice = []
-
-    # Default dummy data for GET requests or initial load
-    dummy_form_data = {
-        'industry': 'Manufacturing',
-        'defect_rate': 0.8,
-        'on_time_delivery': 92.0,
-        'customer_satisfaction': 8.5,
-        'production_efficiency': 85.0,
-        'employee_turnover': 10.0,
-        'patient_wait_time': 20.0,
-        'bed_occupancy': 75.0
-    }
-
-    current_dummy_form_data = dummy_form_data.copy()
-
     if request.method == "POST":
         user_metrics = {
-            "industry": request.form['industry'],
+            "industry": request.form['industrySelect'],
+            "Safety Incidents (TRIR)": float(request.form['safety_incidents']),
+            "Quality Defects (PPM)": float(request.form['quality_defects']),
+            "Maintenance Costs (% of Revenue)": float(request.form['maintenance_costs']),
+            "Overall Equipment Effectiveness (OEE) (%)": float(request.form['oee']),
+            "Energy Consumption (kWh/unit)": float(request.form['energy_consumption']),
             "Defect Rate (%)": float(request.form['defect_rate']),
             "On-Time Delivery (%)": float(request.form['on_time_delivery']),
             "Customer Satisfaction (Score)": float(request.form['customer_satisfaction']),
@@ -238,15 +208,10 @@ def benchmarking_page():
              user_metrics["Patient Wait Time (min)"] = float(request.form['patient_wait_time'])
              user_metrics["Bed Occupancy (%)"] = float(request.form['bed_occupancy'])
 
-        # Update dummy data with submitted form values for persistence
-        current_dummy_form_data.update(request.form)
 
         selected_industry_benchmarks = BENCHMARKS.get(user_metrics['industry'], {})
 
-        comparison_results_list = []
         bar_chart_data = []
-
-        lower_is_better_metrics = ["Defect Rate (%)", "Employee Turnover (%)", "Patient Wait Time (min)"]
 
         for metric, user_value in user_metrics.items():
             if metric == "industry": continue
@@ -255,181 +220,293 @@ def benchmarking_page():
             world_class_best = selected_industry_benchmarks.get("World-Class Functional Best", {}).get(metric)
 
             if industry_best is not None and world_class_best is not None:
-                is_higher_better = metric not in lower_is_better_metrics
-
-                gap_to_industry = 0
-                gap_to_world_class = 0
-
-                if is_higher_better:
-                    if industry_best > 0: # Avoid division by zero
-                        gap_to_industry = ((industry_best - user_value) / industry_best) * 100
-                    if world_class_best > 0:
-                        gap_to_world_class = ((world_class_best - user_value) / world_class_best) * 100
-                else: # Lower is better
-                    if industry_best > 0: # Avoid division by zero
-                        gap_to_industry = ((user_value - industry_best) / industry_best) * 100
-                    if world_class_best > 0:
-                        gap_to_world_class = ((user_value - world_class_best) / world_class_best) * 100
+                gap_industry = user_value - industry_best
+                gap_world_class = user_value - world_class_best
+                status_industry = "Below" if gap_industry > 0 else ("At Par" if gap_industry == 0 else "Above")
+                status_world_class = "Below" if gap_world_class > 0 else ("At Par" if gap_world_class == 0 else "Above")
 
                 comparison_results_list.append({
-                    'Metric': metric,
-                    'Your Value': user_value,
-                    'Industry Best': industry_best,
-                    'World-Class Best': world_class_best,
-                    'Gap to Industry (%)': round(gap_to_industry, 2),
-                    'Gap to World-Class (%)': round(gap_to_world_class, 2),
-                    'Is_Higher_Better': is_higher_better
+                    "Metric": metric,
+                    "Your Value": user_value,
+                    "Industry Best": industry_best,
+                    "World-Class Best": world_class_best,
+                    "Gap to Industry": f"{gap_industry:.2f}",
+                    "Status vs. Industry": status_industry,
+                    "Gap to World-Class": f"{gap_world_class:.2f}",
+                    "Status vs. World-Class": status_world_class
                 })
+                bar_chart_data.append({
+                    "Metric": metric,
+                    "Your Value": user_value,
+                    "Industry Best": industry_best,
+                    "World-Class Best": world_class_best
+                })
+        
+        if bar_chart_data:
+            df_plot = pd.DataFrame(bar_chart_data)
+            fig = go.Figure()
 
-        comparison_results = comparison_results_list # Update the outer variable
+            fig.add_trace(go.Bar(
+                x=df_plot['Metric'],
+                y=df_plot['Your Value'],
+                name='Your Value',
+                marker_color='indianred'
+            ))
+            fig.add_trace(go.Bar(
+                x=df_plot['Metric'],
+                y=df_plot['Industry Best'],
+                name='Industry Best',
+                marker_color='lightsalmon'
+            ))
+            fig.add_trace(go.Bar(
+                x=df_plot['Metric'],
+                y=df_plot['World-Class Best'],
+                name='World-Class Best',
+                marker_color='darkblue'
+            ))
 
-        # Generate advice
-        advice.append(f"Analyzing your performance against the '{user_metrics['industry']}' industry:")
-        for res in comparison_results:
-            metric = res['Metric']
-            your_val = res['Your Value']
-            industry_val = res['Industry Best']
-            world_val = res['World-Class Best']
-            gap_industry_pc = res['Gap to Industry (%)']
-            is_higher_better = res['Is_Higher_Better']
-
-            if is_higher_better:
-                if your_val >= world_val:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is world-class! Excellent work. Maintain these standards.")
-                elif your_val >= industry_val:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) exceeds industry best. Focus on continuous improvement to reach world-class levels.")
-                else:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is below industry best (Avg: {industry_val}%). Focus on strategies to improve this metric. (Gap: {abs(gap_industry_pc)}%)")
-            else: # Lower is better
-                if your_val <= world_val:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is world-class! Excellent work. Maintain these low levels of deviation.")
-                elif your_val <= industry_val:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is better than industry best. Continue to optimize. (Gap: {abs(gap_industry_pc)}%)")
-                else:
-                    advice.append(f" - **{metric}**: Your performance ({your_val}%) is above industry best (Avg: {industry_val}%). Implement measures to reduce this metric. (Gap: {abs(gap_industry_pc)}%)")
-
-        # Generate Plotly Chart
-        df_results_plot = pd.DataFrame(comparison_results)
-        fig = go.Figure()
-
-        fig.add_trace(go.Bar(
-            name='Your Value',
-            x=df_results_plot['Metric'],
-            y=df_results_plot['Your Value'],
-            marker_color='indianred'
-        ))
-        fig.add_trace(go.Bar(
-            name='Industry Best',
-            x=df_results_plot['Metric'],
-            y=df_results_plot['Industry Best'],
-            marker_color='lightsalmon'
-        ))
-        fig.add_trace(go.Bar(
-            name='World-Class Best',
-            x=df_results_plot['Metric'],
-            y=df_results_plot['World-Class Best'],
-            marker_color='lightskyblue'
-        ))
-
-        fig.update_layout(barmode='group', title_text='Performance Benchmarking', yaxis_title='Value (%) or Score')
-        plot_data = json.loads(fig.to_json())
-
-    # This ensures a render_template call always happens, even for GET requests
-    return render_template(
-        'benchmarking.html',
-        active_page='benchmarking',
-        benchmarks_info=BENCHMARKS,
-        dummy_form_data=current_dummy_form_data,
-        comparison_results=comparison_results,
-        plot_data=plot_data,
-        advice=advice
-    )
+            fig.update_layout(
+                barmode='group',
+                title_text='Your Performance vs. Benchmarks',
+                xaxis_title="Metric",
+                yaxis_title="Value",
+                title_x=0.5
+            )
+            plot_data = fig.to_json()
 
 
-@app.route('/routines', methods=['GET', 'POST'])
+    return render_template("benchmarking.html", comparison_results=comparison_results_list, plot_data=plot_data)
+
+# --- Routine Dynamics Explorer Logic (From Day 4 Project) ---
+@app.route("/routines", methods=["GET", "POST"])
 def routines_page():
-    routine_analysis_results = None
+    routine_results = []
     routine_advice = []
-    ideal_routine_input = ""
-    actual_routine_input = ""
 
-    if request.method == 'POST':
-        ideal_routine_str = request.form['ideal_routine']
-        actual_routine_str = request.form['actual_routine']
+    if request.method == "POST":
+        delegate_routine = request.form.get("delegate_routine", "").strip()
+        documented_routine = request.form.get("documented_routine", "").strip()
 
-        ideal_routine_input = ideal_routine_str
-        actual_routine_input = actual_routine_str
+        if delegate_routine and documented_routine:
+            delegate_steps = [s.strip() for s in delegate_routine.split(',') if s.strip()]
+            documented_steps = [s.strip() for s in documented_routine.split(',') if s.strip()]
 
-        ideal_steps = [s.strip() for s in ideal_routine_str.split(',') if s.strip()]
-        actual_steps = [s.strip() for s in actual_routine_str.split(',') if s.strip()]
+            # 1. Compare Step Presence
+            for doc_step in documented_steps:
+                if doc_step not in delegate_steps:
+                    routine_results.append({"Step": doc_step, "Source": "Documented", "Status": "Omitted by Delegate"})
+                else:
+                    routine_results.append({"Step": doc_step, "Source": "Documented", "Status": "Followed"})
+            
+            for del_step in delegate_steps:
+                if del_step not in documented_steps:
+                    routine_results.append({"Step": del_step, "Source": "Delegate", "Status": "Added by Delegate"})
 
-        routine_analysis_results = []
-        max_len = max(len(ideal_steps), len(actual_steps))
+            # 2. Compare Step Order (simplified check)
+            order_mismatch = False
+            if len(delegate_steps) == len(documented_steps):
+                if delegate_steps != documented_steps:
+                    order_mismatch = True
+            else: # If lengths are different, order is implicitly mismatched for common steps
+                common_steps_doc_order = [s for s in documented_steps if s in delegate_steps]
+                common_steps_del_order = [s for s in delegate_steps if s in documented_steps]
+                if common_steps_doc_order != common_steps_del_order:
+                    order_mismatch = True
 
-        deviations = {
-            'omitted': [],
-            'added': [],
-            'reordered': []
-        }
 
-        # Simple comparison for analysis results and initial deviation check
-        for i in range(max_len):
-            ideal_step = ideal_steps[i] if i < len(ideal_steps) else "N/A"
-            actual_step = actual_steps[i] if i < len(actual_steps) else "N/A"
-
-            status = "Match"
-            if ideal_step == actual_step:
-                status = "Match"
-            elif ideal_step == "N/A":
-                status = "Added Step"
-                deviations['added'].append(actual_step)
-            elif actual_step == "N/A":
-                status = "Omitted Step"
-                deviations['omitted'].append(ideal_step)
+            # Generate Advice based on findings
+            omitted_steps = [r['Step'] for r in routine_results if r['Status'] == 'Omitted by Delegate']
+            added_steps = [r['Step'] for r in routine_results if r['Status'] == 'Added by Delegate']
+            followed_steps_count = len([r for r in routine_results if r['Status'] == 'Followed'])
+            total_documented_steps = len(documented_steps)
+            
+            if not omitted_steps and not added_steps and not order_mismatch:
+                routine_advice.append("Excellent adherence! The delegate's routine matches the documented procedure perfectly. This indicates strong process control and training effectiveness. This is a characteristic of **High Reliability Organizations (HROs)** demonstrating **Commitment to Resilience** by standardizing best practices, **Preoccupation with Failure** by ensuring no steps are missed, and **Reluctance to Simplify** by following the complete, detailed routine.")
             else:
-                status = "Deviation"
-                if actual_step not in ideal_steps:
-                    deviations['added'].append(actual_step)
-                if ideal_step not in actual_steps:
-                    deviations['omitted'].append(ideal_step)
+                if omitted_steps:
+                    routine_advice.append(f"**Omitted Steps Detected:** The delegate omitted the following steps: {', '.join(omitted_steps)}. This is a significant concern as omissions can lead to system failures, especially in complex operations. It highlights a potential lack of **Preoccupation with Failure** and a **Reluctance to Simplify** complex realities. Investigate why these steps were missed.")
+                if added_steps:
+                    routine_advice.append(f"**Added Steps Detected:** The delegate added the following steps: {', '.join(added_steps)}. While some additions might be positive adaptations, unauthorized additions can introduce variability and unforeseen risks. This suggests a deviation from the documented process, which can sometimes be a sign of 'workarounds' or 'drift'. Analyze these additions to understand if they are beneficial 'work-arounds' (positive drift) that should be incorporated, or unsafe 'work-arounds' (negative drift) that need correction. This relates to **Sensitivity to Operations** – understanding what is actually happening.")
+                if order_mismatch:
+                    routine_advice.append("**Step Reordering Detected:** The sequence of steps differed from the documented procedure. Order is often critical in complex routines. This signifies a form of routine drift. Analyze if the reordering was a necessary adaptation or a source of potential error. This is crucial for **Deference to Expertise** – ensuring the best method is followed regardless of hierarchy, and counteracting the **Normalization of Deviation**.")
+                
+                if (followed_steps_count / total_documented_steps) < 0.8 and not omitted_steps and not added_steps and not order_mismatch: # edge case for very few followed steps if logic above wasn't perfect
+                    routine_advice.append("Significant deviations from the documented routine were observed. This indicates potential gaps in training, procedure clarity, or a 'normalization of deviation.'")
+                elif not routine_advice: # Fallback for minor, hard-to-categorize drifts
+                     routine_advice.append("Subtle deviations or inconsistencies in the routine were identified. Even small variations can accumulate and lead to significant risks over time (e.g., 'Normalization of Deviation'). Foster a culture of **Chronic Unease** to identify and address these minor drifts before they become major issues.")
 
-            routine_analysis_results.append({
-                'Step_Number': i + 1,
-                'Ideal_Step': ideal_step,
-                'Actual_Step': actual_step,
-                'Status': status
-            })
+    return render_template("routines.html", routine_results=routine_results, routine_advice=routine_advice)
 
-        # More refined deviation analysis for advice
-        omitted_steps = set(ideal_steps) - set(actual_steps)
-        added_steps = set(actual_steps) - set(ideal_steps)
+# --- Risk Strategy Navigator Logic (New Module) ---
+# Define scores for likelihood and impact
+LIKELIHOOD_SCORES = {
+    "Rare": 1,
+    "Unlikely": 2,
+    "Possible": 3,
+    "Likely": 4,
+    "Almost Certain": 5
+}
 
-        reordered = False
-        if len(ideal_steps) == len(actual_steps) and omitted_steps == set() and added_steps == set():
-            if ideal_steps != actual_steps:
-                reordered = True
+IMPACT_SCORES = {
+    "Insignificant": 1,
+    "Minor": 2,
+    "Moderate": 3,
+    "Major": 4,
+    "Catastrophic": 5
+}
 
-        if not omitted_steps and not added_steps and not reordered:
-            routine_advice.append("Excellent! Your actual routine closely matches the ideal routine. This indicates strong process adherence and predictability.")
-        else:
-            if omitted_steps:
-                routine_advice.append(f"Omitted Steps: The following ideal steps were not performed: {', '.join(omitted_steps)}. This could indicate shortcuts or a lack of understanding of critical steps.")
-            if added_steps:
-                routine_advice.append(f"Added Steps: The following steps were performed but are not in the ideal routine: {', '.join(added_steps)}. This might indicate workarounds, unapproved procedures, or necessary adjustments that should be formalized.")
-            if reordered:
-                routine_advice.append("Reordered Steps: The sequence of steps has changed. While all steps might be present, an altered order can introduce new risks or inefficiencies.")
+def calculate_risk_score(likelihood, impact):
+    try:
+        return LIKELIHOOD_SCORES[likelihood] * IMPACT_SCORES[impact]
+    except KeyError:
+        return 0 # Handle cases where input might not match predefined levels
 
-            routine_advice.append("Action: Investigate the reasons for these deviations. Are ideal routines practical? Is training sufficient? Are there unspoken norms (workarounds) that need to be addressed?")
+def classify_risk(score):
+    if score >= 16: # Example threshold for High
+        return "High"
+    elif score >= 9: # Example threshold for Medium
+        return "Medium"
+    else:
+        return "Low"
 
-    return render_template(
-        'routines.html',
-        active_page='routines',
-        ideal_routine_input=ideal_routine_input,
-        actual_routine_input=actual_routine_input,
-        routine_analysis_results=routine_analysis_results,
-        routine_advice=routine_advice
+def get_risk_category_and_advice(likelihood_level, impact_level):
+    likelihood_score = LIKELIHOOD_SCORES.get(likelihood_level, 0)
+    impact_score = IMPACT_SCORES.get(impact_level, 0)
+    
+    risk_advice = ""
+    category = "Other Risks" # Default category
+
+    if likelihood_score >= 4 and impact_score >= 4: # High Severity, High Frequency (HSHF)
+        category = "High Severity, High Frequency (HSHF) Risks"
+        risk_advice = "HSHF: These are urgent, high-priority risks. They demand **Immediate, Radical Intervention**, focusing on **Root Cause Elimination** and fundamental **Process Redesign**. Strategies include applying **TRIZ principles** like 'Segmentation' or 'Prior Action' to break down the problem or prevent it entirely. Reconsider fundamental assumptions and eliminate the conditions that allow the risk to manifest frequently with high impact. These often reflect a 'Fixes That Fail' or 'Shifting the Burden' archetype if not addressed systemically."
+    elif likelihood_score <= 2 and impact_score >= 4: # High Severity, Low Frequency (HSLF)
+        category = "High Severity, Low Frequency (HSLF) Risks"
+        risk_advice = "HSLF: These are 'Black Swan' type risks that can be catastrophic but are rare. Focus on **Robust Design**, **Redundancy** (e.g., multiple layers of defense), and fostering a culture of **Chronic Unease**. Implement **Resilience Planning** and **Contingency Reserves**. The goal is not prevention of the event itself (as it's rare) but minimization of its impact and ensuring rapid recovery. This aligns with a 'Limits to Growth' or 'Tragedy of the Commons' archetype if the system is allowed to deplete its own resilience."
+    elif likelihood_score >= 4 and impact_score <= 2: # Low Severity, High Frequency (LSHF)
+        category = "Low Severity, High Frequency (LSHF) Risks"
+        risk_advice = "LSHF: These are nuisance risks that can erode morale and efficiency over time. Focus on **Process Optimization** and **Standardization**. Implement quick, iterative improvements. While individually minor, their cumulative effect can be significant (similar to 'Accumulation'). Automate where possible to reduce human error. Don't let these become 'Normalized Deviations'."
+    else:
+        risk_advice = "General risk management advice: For 'Other Risks' (Medium/Low Priority), prioritize based on score and available resources. Implement standard controls, monitor regularly, and review periodically."
+    
+    return category, risk_advice
+
+
+@app.route("/risk_navigator", methods=["GET", "POST"])
+def risk_navigator_page():
+    if 'risks_data' not in session:
+        session['risks_data'] = []
+
+    if request.method == "POST":
+        if 'risk_name' in request.form:
+            risk_name = request.form['risk_name']
+            likelihood = request.form['likelihood']
+            impact = request.form['impact']
+
+            if risk_name.strip() and likelihood and impact:
+                score = calculate_risk_score(likelihood, impact)
+                priority = classify_risk(score)
+                category, advice = get_risk_category_and_advice(likelihood, impact)
+
+                session['risks_data'].append({
+                    "Risk Name": risk_name,
+                    "Likelihood": likelihood,
+                    "Impact": impact,
+                    "Score": score,
+                    "Priority": priority,
+                    "Category": category,
+                    "Advice": advice
+                })
+        elif 'clear_all_risks' in request.form:
+            session['risks_data'] = []
+            return redirect(url_for('risk_navigator_page'))
+
+    # Prepare data for Plotly heatmap
+    risk_matrix_data = [[0 for _ in range(5)] for _ in range(5)]
+    x_labels = list(IMPACT_SCORES.keys())
+    y_labels = list(LIKELIHOOD_SCORES.keys())
+
+    # Map scores to colors for the heatmap background
+    colorscale_values = [
+        [0, 'rgb(144, 238, 144)'],    # Light Green (Low)
+        [0.5, 'rgb(255, 255, 0)'],    # Yellow (Medium)
+        [0.8, 'rgb(255, 165, 0)'],    # Orange (Medium-High)
+        [1, 'rgb(255, 0, 0)']       # Red (High)
+    ]
+
+    # Create the heatmap background
+    z_values = [
+        [1, 2, 3, 4, 5],
+        [2, 4, 6, 8, 10],
+        [3, 6, 9, 12, 15],
+        [4, 8, 12, 16, 20],
+        [5, 10, 15, 20, 25]
+    ]
+
+    heatmap_trace = go.Heatmap(
+        z=z_values,
+        x=x_labels,
+        y=y_labels,
+        colorscale='Viridis', # You can choose a different colorscale here if 'Viridis' isn't what you want
+        showscale=True,
+        hovertemplate="Likelihood: %{y}<br>Impact: %{x}<br>Score: %{z}<extra></extra>"
     )
 
+    # Add submitted risks as scatter points on top of the heatmap
+    risk_points = []
+    if session['risks_data']:
+        for risk in session['risks_data']:
+            risk_points.append(go.Scatter(
+                x=[risk['Impact']],
+                y=[risk['Likelihood']],
+                mode='markers',
+                marker=dict(symbol='circle', size=15, color='black',
+                            line=dict(width=2, color='white')),
+                name=f"Risk: {risk['Risk Name']}",
+                hoverinfo='text',
+                hovertext=f"<b>Risk:</b> {risk['Risk Name']}<br>"
+                            f"<b>Likelihood:</b> {risk['Likelihood']}<br>"
+                            f"<b>Impact:</b> {risk['Impact']}<br>"
+                            f"<b>Score:</b> {risk['Score']}<br>"
+                            f"<b>Priority:</b> {risk['Priority']}<br>"
+                            f"<b>Category:</b> {risk['Category']}<br>"
+                            f"<b>Advice:</b> {risk['Advice']}",
+                showlegend=False
+            ))
 
-if __name__ == '__main__':
+    risk_fig = go.Figure(data=[heatmap_trace] + risk_points)
+
+    risk_fig.update_layout(
+        title_text='Risk Assessment Matrix',
+        xaxis_title='Impact',
+        yaxis_title='Likelihood',
+        xaxis_type='category',
+        yaxis_type='category',
+        xaxis_tickangle=-45,
+        title_x=0.5
+    )
+
+    plot_data = risk_fig.to_json()
+
+    # Categorize risks for display
+    hshf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, High Frequency (HSHF) Risks"]
+    hslf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, Low Frequency (HSLF) Risks"]
+    other_risks = [r for r in session['risks_data'] if r['Category'] == "Other Risks" or r['Category'] == "Low Severity, High Frequency (LSHF) Risks"]
+    
+    # Get distinct advice for each category, as multiple risks might have the same advice
+    hshf_advice = list(set([r['Advice'] for r in hshf_risks]))
+    hslf_advice = list(set([r['Advice'] for r in hslf_risks]))
+    other_advice = list(set([r['Advice'] for r in other_risks]))
+
+
+    return render_template("risk_navigator.html", 
+                           risks=session['risks_data'], 
+                           plot_data=plot_data,
+                           hshf_risks=hshf_risks,
+                           hslf_risks=hslf_risks,
+                           other_risks=other_risks,
+                           hshf_advice=hshf_advice,
+                           hslf_advice=hslf_advice,
+                           other_advice=other_advice)
+
+if __name__ == "__main__":
     app.run(debug=True)

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Strategy Navigator - Reliability Insights Hub</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 20px; background-color: #f8f9fa; }
+        .container { background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: #0056b3; }
+        .results-section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
+        .table thead th { background-color: #e9ecef; }
+        .alert { font-weight: bold; }
+        .alert-hshf { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; } /* Reddish for HSHF */
+        .alert-hslf { background-color: #fff3cd; color: #856404; border-color: #ffeeba; } /* Yellowish/Orange for HSLF */
+        .alert-other { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; } /* Bluish for Other */
+        .risk-advice-section { margin-top: 20px; }
+        .risk-advice-section h4 { margin-top: 15px; margin-bottom: 10px; }
+        .risk-item { margin-bottom: 5px; }
+        .card-header { font-weight: bold; background-color: #e9ecef; }
+        .navbar-brand { font-weight: bold; }
+        .navbar-nav .nav-link { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+        <a class="navbar-brand" href="/">Reliability Insights Hub</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Incident Analyzer</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/benchmarking">Performance Benchmarker</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/routines">Routine Dynamics Explorer</a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="/risk_navigator">Risk Strategy Navigator <span class="sr-only">(current)</span></a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="text-center mb-4">Risk Strategy Navigator</h1>
+        <p class="text-center lead">Visualize risk prioritization and understand distinct management strategies based on Likelihood and Impact.</p>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                Define New Risk
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="risk_name">Risk Name:</label>
+                        <input type="text" class="form-control" id="risk_name" name="risk_name" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="likelihood">Likelihood:</label>
+                            <select class="form-control" id="likelihood" name="likelihood" required>
+                                <option value="">Select Likelihood</option>
+                                <option value="Rare">Rare</option>
+                                <option value="Unlikely">Unlikely</option>
+                                <option value="Possible">Possible</option>
+                                <option value="Likely">Likely</option>
+                                <option value="Almost Certain">Almost Certain</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="impact">Impact:</label>
+                            <select class="form-control" id="impact" name="impact" required>
+                                <option value="">Select Impact</option>
+                                <option value="Insignificant">Insignificant</option>
+                                <option value="Minor">Minor</option>
+                                <option value="Moderate">Moderate</option>
+                                <option value="Major">Major</option>
+                                <option value="Catastrophic">Catastrophic</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Risk</button>
+                    <button type="submit" name="clear_all_risks" value="true" class="btn btn-danger float-right" onclick="return confirm('Are you sure you want to clear all risks?');">Clear All Risks</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <h2 class="text-center mb-4">Interactive Risk Assessment Matrix</h2>
+            <div id="riskMatrixChart" style="height: 500px;"></div>
+        </div>
+
+        <div class="risk-advice-section">
+            <h2 class="text-center mb-4">Categorized Risks & Strategic Advice</h2>
+
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header alert-hshf">
+                            High Severity, High Frequency (HSHF) Risks
+                        </div>
+                        <div class="card-body">
+                            {% if hshf_risks %}
+                                <ul class="list-unstyled">
+                                    {% for risk in hshf_risks %}
+                                        <li class="risk-item"><strong>{{ risk['Risk Name'] }}</strong> (L: {{ risk['Likelihood'] }}, I: {{ risk['Impact'] }}, Score: {{ risk['Score'] }})</li>
+                                    {% endfor %}
+                                </ul>
+                                <h4 class="mt-3">Strategic Advice for HSHF Risks:</h4>
+                                {% for advice in hshf_advice %}
+                                    <div class="alert alert-hshf mt-2">{{ advice }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No HSHF risks added yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header alert-hslf">
+                            High Severity, Low Frequency (HSLF) Risks
+                        </div>
+                        <div class="card-body">
+                            {% if hslf_risks %}
+                                <ul class="list-unstyled">
+                                    {% for risk in hslf_risks %}
+                                        <li class="risk-item"><strong>{{ risk['Risk Name'] }}</strong> (L: {{ risk['Likelihood'] }}, I: {{ risk['Impact'] }}, Score: {{ risk['Score'] }})</li>
+                                    {% endfor %}
+                                </ul>
+                                <h4 class="mt-3">Strategic Advice for HSLF Risks:</h4>
+                                {% for advice in hslf_advice %}
+                                    <div class="alert alert-hslf mt-2">{{ advice }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No HSLF risks added yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header alert-other">
+                    Other Risks (Medium/Low Priority)
+                </div>
+                <div class="card-body">
+                    {% if other_risks %}
+                        <ul class="list-unstyled">
+                            {% for risk in other_risks %}
+                                <li class="risk-item"><strong>{{ risk['Risk Name'] }}</strong> (L: {{ risk['Likelihood'] }}, I: {{ risk['Impact'] }}, Score: {{ risk['Score'] }})</li>
+                            {% endfor %}
+                        </ul>
+                        <h4 class="mt-3">Strategic Advice for Other Risks:</h4>
+                        {% for advice in other_advice %}
+                            <div class="alert alert-other mt-2">{{ advice }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No other risks added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        // Plotly chart rendering
+        {% if plot_data %}
+            var riskFig = JSON.parse({{ plot_data | tojson }});
+            Plotly.newPlot('riskMatrixChart', riskFig.data, riskFig.layout);
+        {% endif %}
+    </script>
+</body>
+</html>
