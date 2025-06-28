@@ -184,6 +184,9 @@ BENCHMARKS = {
 def benchmarking_page():
     comparison_results_list = []
     plot_data = None
+    # Define dummy_form_data for initial page load (GET request)
+    dummy_form_data = {"industry": "Manufacturing"} # Set a default industry
+
     if request.method == "POST":
         user_metrics = {
             "industry": request.form['industrySelect'],
@@ -271,7 +274,7 @@ def benchmarking_page():
             plot_data = fig.to_json()
 
 
-    return render_template("benchmarking.html", comparison_results=comparison_results_list, plot_data=plot_data, benchmarks_info=BENCHMARKS)
+    return render_template("benchmarking.html", comparison_results=comparison_results_list, plot_data=plot_data, benchmarks_info=BENCHMARKS, dummy_form_data=dummy_form_data)
 
 # --- Routine Dynamics Explorer Logic (From Day 4 Project) ---
 @app.route("/routines", methods=["GET", "POST"])
