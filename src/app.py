@@ -469,7 +469,6 @@ def risk_navigator_page():
                 showlegend=False
             ))
 
-<<<<<<< HEAD
     risk_fig = go.Figure(data=[heatmap_trace] + risk_points)
 
     risk_fig.update_layout(
