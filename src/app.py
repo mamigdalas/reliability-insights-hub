@@ -506,7 +506,4 @@ def risk_navigator_page():
 
 if __name__ == "__main__":
     app.run(debug=True)
-=======
-if __name__ == '__main__':
-    app.run(debug=True)
->>>>>>> 69ccdfa586ad47d7215aa468f97b355b64d77bd8
+
