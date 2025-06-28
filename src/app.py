@@ -118,16 +118,42 @@ def load_examples():
     ]
     current_total_incidents = len(session.get('incidents_data', []))
     processed_examples = automated_incident_triage(example_incidents, current_total_incidents)
-    
+
     if 'incidents_data' not in session:
         session['incidents_data'] = []
     session['incidents_data'].extend(processed_examples)
-    
+
     return redirect(url_for('incident_analyzer_page'))
 
 @app.route("/clear_incidents", methods=["POST"])
 def clear_incidents():
     session['incidents_data'] = []
+    return redirect(url_for('incident_analyzer_page'))
+
+@app.route("/upload_incidents", methods=["POST"])
+def upload_incidents():
+    if 'incident_file' not in request.files:
+        # Handle case where no file was uploaded
+        return redirect(url_for('incident_analyzer_page'))
+
+    incident_file = request.files['incident_file']
+
+    if incident_file.filename == '':
+        # Handle case where an empty file was submitted
+        return redirect(url_for('incident_analyzer_page'))
+
+    if incident_file and incident_file.filename.endswith('.txt'):
+        file_content = incident_file.read().decode('utf-8')
+        # Assuming each incident report is on a new line
+        incident_reports_from_file = [line.strip() for line in file_content.split('\n') if line.strip()]
+
+        current_total_incidents = len(session.get('incidents_data', []))
+        processed_reports = automated_incident_triage(incident_reports_from_file, current_total_incidents)
+
+        if 'incidents_data' not in session:
+            session['incidents_data'] = []
+        session['incidents_data'].extend(processed_reports)
+
     return redirect(url_for('incident_analyzer_page'))
 
 # --- Performance Benchmarker Logic (From Day 3 Project) ---
@@ -268,7 +294,7 @@ def benchmarking_page():
                     "Industry Best": industry_best,
                     "World-Class Best": world_class_best
                 })
-        
+
         if bar_chart_data:
             df_plot = pd.DataFrame(bar_chart_data)
             fig = go.Figure()
@@ -324,7 +350,7 @@ def routines_page():
                     routine_results.append({"Step": doc_step, "Source": "Documented", "Status": "Omitted by Delegate"})
                 else:
                     routine_results.append({"Step": doc_step, "Source": "Documented", "Status": "Followed"})
-            
+
             for del_step in delegate_steps:
                 if del_step not in documented_steps:
                     routine_results.append({"Step": del_step, "Source": "Delegate", "Status": "Added by Delegate"})
@@ -346,7 +372,7 @@ def routines_page():
             added_steps = [r['Step'] for r in routine_results if r['Status'] == 'Added by Delegate']
             followed_steps_count = len([r for r in routine_results if r['Status'] == 'Followed'])
             total_documented_steps = len(documented_steps)
-            
+
             if not omitted_steps and not added_steps and not order_mismatch:
                 routine_advice.append("Excellent adherence! The delegate's routine matches the documented procedure perfectly. This indicates strong process control and training effectiveness. This is a characteristic of **High Reliability Organizations (HROs)** demonstrating **Commitment to Resilience** by standardizing best practices, **Preoccupation with Failure** by ensuring no steps are missed, and **Reluctance to Simplify** by following the complete, detailed routine.")
             else:
@@ -356,7 +382,7 @@ def routines_page():
                     routine_advice.append(f"**Added Steps Detected:** The delegate added the following steps: {', '.join(added_steps)}. While some additions might be positive adaptations, unauthorized additions can introduce variability and unforeseen risks. This suggests a deviation from the documented process, which can sometimes be a sign of 'workarounds' or 'drift'. Analyze these additions to understand if they are beneficial 'work-arounds' (positive drift) that should be incorporated, or unsafe 'work-arounds' (negative drift) that need correction. This relates to **Sensitivity to Operations** – understanding what is actually happening.")
                 if order_mismatch:
                     routine_advice.append("**Step Reordering Detected:** The sequence of steps differed from the documented procedure. Order is often critical in complex routines. This signifies a form of routine drift. Analyze if the reordering was a necessary adaptation or a source of potential error. This is crucial for **Deference to Expertise** – ensuring the best method is followed regardless of hierarchy, and counteracting the **Normalization of Deviation**.")
-                
+
                 if (followed_steps_count / total_documented_steps) < 0.8 and not omitted_steps and not added_steps and not order_mismatch: # edge case for very few followed steps if logic above wasn't perfect
                     routine_advice.append("Significant deviations from the documented routine were observed. This indicates potential gaps in training, procedure clarity, or a 'normalization of deviation.'")
                 elif not routine_advice: # Fallback for minor, hard-to-categorize drifts
@@ -399,7 +425,7 @@ def classify_risk(score):
 def get_risk_category_and_advice(likelihood_level, impact_level):
     likelihood_score = LIKELIHOOD_SCORES.get(likelihood_level, 0)
     impact_score = IMPACT_SCORES.get(impact_level, 0)
-    
+
     risk_advice = ""
     category = "Other Risks" # Default category
 
@@ -414,7 +440,7 @@ def get_risk_category_and_advice(likelihood_level, impact_level):
         risk_advice = "LSHF: These are nuisance risks that can erode morale and efficiency over time. Focus on **Process Optimization** and **Standardization**. Implement quick, iterative improvements. While individually minor, their cumulative effect can be significant (similar to 'Accumulation'). Automate where possible to reduce human error. Don't let these become 'Normalized Deviations'."
     else:
         risk_advice = "General risk management advice: For 'Other Risks' (Medium/Low Priority), prioritize based on score and available resources. Implement standard controls, monitor regularly, and review periodically."
-    
+
     return category, risk_advice
 
 
@@ -516,17 +542,17 @@ def risk_navigator_page():
 
     # Categorize risks for display
     hshf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, High Frequency (HSHF) Risks"]
-    hslf_risks = [r for r in session['risks_data'] if r['Category'] == "High Severity, Low Frequency (HSLF) Risks"]
+    hslf_risks = [r for r in session['riscs_data'] if r['Category'] == "High Severity, Low Frequency (HSLF) Risks"]
     other_risks = [r for r in session['risks_data'] if r['Category'] == "Other Risks" or r['Category'] == "Low Severity, High Frequency (LSHF) Risks"]
-    
+
     # Get distinct advice for each category, as multiple risks might have the same advice
     hshf_advice = list(set([r['Advice'] for r in hshf_risks]))
     hslf_advice = list(set([r['Advice'] for r in hslf_risks]))
     other_advice = list(set([r['Advice'] for r in other_risks]))
 
 
-    return render_template("risk_navigator.html", 
-                           risks=session['risks_data'], 
+    return render_template("risk_navigator.html",
+                           risks=session['risks_data'],
                            plot_data=plot_data,
                            hshf_risks=hshf_risks,
                            hslf_risks=hslf_risks,
@@ -537,4 +563,3 @@ def risk_navigator_page():
 
 if __name__ == "__main__":
     app.run(debug=True)
-

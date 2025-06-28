@@ -15,100 +15,106 @@
         .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
         .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
         .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
-        .chart-container { margin-top: 20px; }
         .sidebar {
-            background-color: #343a40; /* Dark background for sidebar */
-            color: #ffffff;
-            height: 100vh;
-            padding-top: 20px;
-            position: fixed; /* Fix sidebar position */
-            left: 0;
-            top: 0;
-            width: 250px; /* Adjust width as needed */
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .sidebar h4 {
+            color: #333;
+            margin-bottom: 15px;
         }
         .sidebar .nav-link {
-            color: #ffffff;
-            padding: 10px 15px;
+            color: #0056b3;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
-        .sidebar .nav-link.active, .sidebar .nav-link:hover {
-            background-color: #0056b3; /* Highlight color */
-            color: #ffffff;
+        .sidebar .nav-link.active {
+            color: #007bff;
+            background-color: #e9ecef;
             border-radius: 5px;
         }
-        .main-content {
-            margin-left: 270px; /* Offset for fixed sidebar */
-            padding: 20px;
+        .sidebar .nav-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-    <h3 class="text-center mb-4">Reliability Insights Hub</h3>
-    <ul class="nav flex-column">
-        <li class="nav-item">
-            <a class="nav-link {% if active_page == 'incidents' %}active{% endif %}" href="/">Incident & Learning Lab</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if active_page == 'benchmarking' %}active{% endif %}" href="/benchmarking">Performance Benchmarker</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if active_page == 'routines' %}active{% endif %}" href="/routines">Routine Dynamics Explorer</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/risk_navigator">Risk Strategy Navigator</a>
-        </li>
-    </ul>
-</div>
-
-    <div class="main-content">
-        <div class="container">
-            <h1 class="text-center mb-4">Incident & Learning Lab</h1>
-            <p class="text-center lead">Explore how to systematically analyze incidents and near-misses, and derive actionable insights.</p>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <h2>Submit Incident Report</h2>
-                    <form method="POST" action="/">
-                        <div class="form-group">
-                            <label for="incidentDescription">Incident/Near-Miss Description:</label>
-                            <textarea class="form-control" id="incidentDescription" name="incident_description" rows="5" required placeholder="e.g., Operator failed to follow procedure for lockout/tagout, leading to unexpected equipment startup. Minor injury sustained.">{{ request.form.incident_description if request.form.incident_description else '' }}</textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block">Analyze & Add Incident</button>
-                    </form>
-                </div>
-                <div class="col-md-6">
-                    <h2>Manage Reports</h2>
-                    <form method="POST" action="/load_examples">
-                        <button type="submit" class="btn btn-info btn-block mb-3">Load Example Incidents</button>
-                    </form>
-                     <form method="POST" action="/clear_incidents" onsubmit="return confirm('Are you sure you want to clear all incidents?');">
-                        <button type="submit" class="btn btn-danger btn-block">Clear All Incidents</button>
-                    </form>
-                    {% if incidents %}
-                    <h5 class="mt-3">Current Incidents ({{ incidents|length }} total)</h5>
-                    <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
-                        {% for incident in incidents %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ incident.Description[:60] }}...
-                            <span class="badge {{ 'badge-danger' if incident.Severity == 'High' else ('badge-warning' if incident.Severity == 'Medium' else 'badge-success') }} badge-pill">{{ incident.Severity }}</span>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="sidebar">
+                    <h4>Navigation</h4>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/">Incident & Learning Lab</a>
                         </li>
-                        {% endfor %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="/benchmarking">Performance Benchmarker</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/routines">Routine Dynamics Explorer</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/risk_navigator">Risk Strategy Navigator</a>
+                        </li>
                     </ul>
-                    {% else %}
-                    <p class="text-muted mt-3">No incidents loaded yet. Load examples or submit your own!</p>
-                    {% endif %}
                 </div>
             </div>
+            <div class="col-md-9">
+                <h1 class="mb-4">Incident & Learning Lab</h1>
+                <p class="lead">Analyze incident reports, categorize them, and get suggested actions to enhance organizational learning and reliability. Inspired by safety I, safety II, and resilience engineering.</p>
 
-            {% if analysis_results %}
-            <div class="results-section">
-                <h2 class="text-center">Detailed Analysis</h2>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        Submit New Incident Report
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="form-group">
+                                <label for="incident_description">Incident Description:</label>
+                                <textarea class="form-control" id="incident_description" name="incident_description" rows="3" placeholder="e.g., Operator failed to follow procedure leading to equipment damage."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Analyze Incident</button>
+                        </form>
+                    </div>
+                </div>
 
-                <div class="table-responsive mb-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        Manage Reports
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="/load_examples">
+                            <button type="submit" class="btn btn-info btn-block mb-3">Load Example Incidents</button>
+                        </form>
+                        <form method="POST" action="/clear_incidents" onsubmit="return confirm('Are you sure you want to clear all incidents?');">
+                            <button type="submit" class="btn btn-danger btn-block">Clear All Incidents</button>
+                        </form>
+                        <form method="POST" action="/upload_incidents" enctype="multipart/form-data">
+                            <div class="form-group mt-3">
+                                <label for="incidentFile">Upload Incident Reports (.txt):</label>
+                                <input type="file" class="form-control-file" id="incidentFile" name="incident_file" accept=".txt" required>
+                                <small class="form-text text-muted">Each incident report should be on a new line in the .txt file.</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Upload & Analyze File</button>
+                        </form>
+                    </div>
+                </div>
+
+                {% if analysis_results %}
+                <div class="results-section">
+                    <h3>Incident Analysis Results</h3>
+                    {% if high_severity_count > 0 %}
+                    <div class="alert alert-danger" role="alert">
+                        <strong>Urgent Review & Learning from Worst Practice:</strong> There are {{ high_severity_count }} 'High Severity' incident(s) detected. These demand immediate, in-depth Root Cause Analysis (RCA) to uncover all contributing factors. Such events, though rare, offer profound lessons and often compel fundamental, systemic changes, just as we learn from 'worst practice' major disasters.
+                    </div>
+                    {% endif %}
                     <table class="table table-bordered table-striped">
-                        <thead class="thead-dark">
+                        <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>Report ID</th>
                                 <th>Description</th>
                                 <th>Severity</th>
                                 <th>Inferred Categories</th>
@@ -117,44 +123,30 @@
                         </thead>
                         <tbody>
                             {% for result in analysis_results %}
-                            <tr class="{{ 'table-danger' if result.Severity == 'High' else ('table-warning' if result.Severity == 'Medium' else '') }}">
-                                <td>{{ result.Report_ID }}</td>
-                                <td>{{ result.Description }}</td>
-                                <td><span class="badge {{ 'badge-danger' if result.Severity == 'High' else ('badge-warning' if result.Severity == 'Medium' else 'badge-success') }} badge-pill">{{ result.Severity }}</span></td>
-                                <td>{{ result.Inferred_Categories }}</td>
-                                <td>{{ result.Suggested_Action }}</td>
+                            <tr>
+                                <td>{{ result['Report_ID'] }}</td>
+                                <td>{{ result['Description'] }}</td>
+                                <td>{{ result['Severity'] }}</td>
+                                <td>{{ result['Inferred_Categories'] }}</td>
+                                <td>{{ result['Suggested_Action'] }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
 
-                <h3 class="text-center mt-4 mb-3">Summary Charts</h3>
-                <div class="row">
-                    <div class="col-md-6 chart-container">
-                        <h4 class="text-center">Incidents by Severity</h4>
-                        <div id="severityChart" style="height: 300px;"></div>
-                    </div>
-                    <div class="col-md-6 chart-container">
-                        <h4 class="text-center">Incidents by Category</h4>
-                        <div id="categoryChart" style="height: 300px;"></div>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div id="severityChart"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="categoryChart"></div>
+                        </div>
                     </div>
                 </div>
-
-                <h3 class="text-center mt-4 mb-3">Key Learnings & Advice</h3>
-                <div class="alert alert-info" role="alert">
-                    <strong>Remember Just Culture:</strong> This analysis aims to identify systemic patterns, not to assign individual blame. Foster an environment where errors are reported for learning, not punishment.
-                </div>
-                <div class="alert alert-warning" role="alert">
-                    <strong>Systemic Thinking & Double-Loop Learning:</strong> If you see recurring patterns (e.g., many 'Human Error' or 'Procedure Issue' incidents), it's a signal to look beyond the immediate fix. Ask 'why?' at a deeper level to challenge underlying assumptions, training, or process design. This is Double-Loop Learning in action!
-                </div>
-                {% if high_severity_count > 0 %}
-                <div class="alert alert-danger" role="alert">
-                    <strong>Urgent Review & Learning from Worst Practice:</strong> There are {{ high_severity_count }} 'High Severity' incident(s) detected. These demand immediate, in-depth Root Cause Analysis (RCA) to uncover all contributing factors. Such events, though rare, offer profound lessons and often compel fundamental, systemic changes, just as we learn from 'worst practice' major disasters.
-                </div>
+                {% else %}
+                <p class="text-muted">No incident reports analyzed yet. Submit a report or load examples above.</p>
                 {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
 
