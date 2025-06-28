@@ -75,10 +75,6 @@ def incident_analyzer_page():
             if new_report.strip():
                 processed_new_report = automated_incident_triage([new_report], len(session['incidents_data']))
                 session['incidents_data'].extend(processed_new_report)
-                print(f"DEBUG: Incident added. Current session data: {session['incidents_data']}")
-        elif 'clear_all_incidents' in request.form:
-            session['incidents_data'] = []
-            return redirect(url_for('incident_analyzer_page'))
 
     if session['incidents_data']:
         df = pd.DataFrame(session['incidents_data'])
@@ -473,6 +469,7 @@ def risk_navigator_page():
                 showlegend=False
             ))
 
+<<<<<<< HEAD
     risk_fig = go.Figure(data=[heatmap_trace] + risk_points)
 
     risk_fig.update_layout(
@@ -510,3 +507,7 @@ def risk_navigator_page():
 
 if __name__ == "__main__":
     app.run(debug=True)
+=======
+if __name__ == '__main__':
+    app.run(debug=True)
+>>>>>>> 69ccdfa586ad47d7215aa468f97b355b64d77bd8
