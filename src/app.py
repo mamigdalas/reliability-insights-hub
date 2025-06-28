@@ -102,6 +102,34 @@ def incident_analyzer_page():
 
     return render_template("incident_analyzer.html", analysis_results=session['incidents_data'], plot_data=plot_data, high_severity_count=high_severity_count)
 
+@app.route("/load_examples", methods=["POST"])
+def load_examples():
+    example_incidents = [
+        "Operator failed to follow lockout/tagout procedure. Minor injury sustained.",
+        "Sudden power surge damaged equipment in Unit B.",
+        "Maintenance crew forgot to close valve after routine check, leading to small leak.",
+        "Communication breakdown during shift handover resulted in missed critical task.",
+        "Heavy rain caused roof leak in server room.",
+        "New employee bypassed safety protocol due to lack of training.",
+        "Faulty sensor gave incorrect readings, leading to process inefficiency.",
+        "Unclear operating procedure led to incorrect chemical mixture.",
+        "Scheduled equipment servicing was delayed due to part unavailability.",
+        "Unexpected vibration detected in pump, causing concern."
+    ]
+    current_total_incidents = len(session.get('incidents_data', []))
+    processed_examples = automated_incident_triage(example_incidents, current_total_incidents)
+    
+    if 'incidents_data' not in session:
+        session['incidents_data'] = []
+    session['incidents_data'].extend(processed_examples)
+    
+    return redirect(url_for('incident_analyzer_page'))
+
+@app.route("/clear_incidents", methods=["POST"])
+def clear_incidents():
+    session['incidents_data'] = []
+    return redirect(url_for('incident_analyzer_page'))
+
 # --- Performance Benchmarker Logic (From Day 3 Project) ---
 BENCHMARKS = {
     "Manufacturing": {
