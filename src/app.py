@@ -271,7 +271,7 @@ def benchmarking_page():
             plot_data = fig.to_json()
 
 
-    return render_template("benchmarking.html", comparison_results=comparison_results_list, plot_data=plot_data, **strong**benchmarks_info=BENCHMARKS**)
+    return render_template("benchmarking.html", comparison_results=comparison_results_list, plot_data=plot_data, benchmarks_info=BENCHMARKS)
 
 # --- Routine Dynamics Explorer Logic (From Day 4 Project) ---
 @app.route("/routines", methods=["GET", "POST"])
